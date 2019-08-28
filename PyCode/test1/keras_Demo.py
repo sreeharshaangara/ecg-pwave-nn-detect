@@ -26,9 +26,9 @@ y_test = np.random.randint(2, size=(100, 1))
 
 model = tf.keras.Sequential()
 
-model.add(Dense(64, input_dim=1, activation='relu'))
+model.add(Dense(16, input_dim=1, activation='relu'))
 model.add(Dropout(0.5))
-model.add(Dense(64, activation='relu'))
+model.add(Dense(16, activation='relu'))
 model.add(Dropout(0.5))
 model.add(Dense(1, activation='sigmoid'))
 
@@ -40,6 +40,11 @@ model.fit(x_train, y_train,
           epochs=20,
           batch_size=128)
 score = model.evaluate(x_test, y_test, batch_size=128)
+
+
+
+predicted_out = model.predict(x_test, batch_size = 1)
+print(predicted_out)
 
 # Data for plotting
 #s = 1 + np.sin(2 * np.pi * t)

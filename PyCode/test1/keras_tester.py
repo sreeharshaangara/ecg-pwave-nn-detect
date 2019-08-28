@@ -20,6 +20,7 @@ model = krs.models.load_model('current_run.h5')
 INPUT_FILE_PATH = '..\\..\\mit-bih-database\\100'
 
 DATA_LIMIT = 10000
+NN_INPUT_DATA_LENGTH = 128
 
 # Read input data
 record = wfdbio.rdsamp(INPUT_FILE_PATH, channels = [0])
@@ -41,13 +42,32 @@ for i in range(0, DATA_LIMIT):
     else:
         annotation_timed.append(0)
 
-predicted_out = model.predict(input_dat, batch_size = 1)
+
+norm_input_dat = []
+for i in range(0, (DATA_LIMIT-NN_INPUT_DATA_LENGTH)):
+    tmp_dat_max = max(input_dat[i:(i+NN_INPUT_DATA_LENGTH)])
+    tmp_dat_min = min(input_dat[i:(i+NN_INPUT_DATA_LENGTH)])
+    norm_dat = []
+    
+    for j in range (0, NN_INPUT_DATA_LENGTH):
+        norm_dat.append((input_dat[i + j] - tmp_dat_min)/(tmp_dat_max - tmp_dat_min))
+
+    norm_input_dat.append(norm_dat)
+
+norm_input_dat = np.array(norm_input_dat)
+
+norm_input_dat = np.reshape(norm_input_dat, [-1, 128,1])
+
+
+predicted_out = (model.predict(norm_input_dat, batch_size = 1))
+
+
 
 print(predicted_out)
 
 t = range(0,DATA_LIMIT)
 
-plt.plot(t, annotation_timed, t, input_dat, t , predicted_out)
+plt.plot(t, annotation_timed, t, input_dat, t[NN_INPUT_DATA_LENGTH:] , predicted_out)
 
 plt.show()
 
