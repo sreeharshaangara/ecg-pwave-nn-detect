@@ -17,10 +17,12 @@ import wfdb.io as wfdbio
 model = krs.models.load_model('current_run.h5')
 
 
-INPUT_FILE_PATH = '..\\..\\mit-bih-database\\100'
+INPUT_FILE_PATH = '..\\..\\mit-bih-database\\101'
 
 DATA_LIMIT = 10000
-NN_INPUT_DATA_LENGTH = 128
+NN_INPUT_DATA_LENGTH = 320
+
+num_training_sets  = int( DATA_LIMIT / NN_INPUT_DATA_LENGTH)
 
 # Read input data
 record = wfdbio.rdsamp(INPUT_FILE_PATH, channels = [0])
@@ -42,32 +44,58 @@ for i in range(0, DATA_LIMIT):
     else:
         annotation_timed.append(0)
 
-
+############################
+# Form input data into sets
+############################
 norm_input_dat = []
-for i in range(0, (DATA_LIMIT-NN_INPUT_DATA_LENGTH)):
-    tmp_dat_max = max(input_dat[i:(i+NN_INPUT_DATA_LENGTH)])
-    tmp_dat_min = min(input_dat[i:(i+NN_INPUT_DATA_LENGTH)])
+for i in range(0, num_training_sets):
+    #Normalize input
+    tmp_dat_max = max(input_dat[i*NN_INPUT_DATA_LENGTH:(i+1)*NN_INPUT_DATA_LENGTH])
+    tmp_dat_min = min(input_dat[i*NN_INPUT_DATA_LENGTH:(i+1)*NN_INPUT_DATA_LENGTH])
     norm_dat = []
-    
     for j in range (0, NN_INPUT_DATA_LENGTH):
-        norm_dat.append((input_dat[i + j] - tmp_dat_min)/(tmp_dat_max - tmp_dat_min))
+        norm_dat.append((input_dat[i*NN_INPUT_DATA_LENGTH + j] - tmp_dat_min)/(tmp_dat_max - tmp_dat_min))
 
     norm_input_dat.append(norm_dat)
 
-norm_input_dat = np.array(norm_input_dat)
+norm_input_dat = np.array(norm_input_dat, dtype=np.float32)
 
-norm_input_dat = np.reshape(norm_input_dat, [-1, 128,1])
+# norm_input_dat = []
+# for i in range(0, (DATA_LIMIT-NN_INPUT_DATA_LENGTH)):
+#     tmp_dat_max = max(input_dat[i:(i+NN_INPUT_DATA_LENGTH)])
+#     tmp_dat_min = min(input_dat[i:(i+NN_INPUT_DATA_LENGTH)])
+#     norm_dat = []
+    
+#     for j in range (0, NN_INPUT_DATA_LENGTH):
+#         norm_dat.append((input_dat[i + j] - tmp_dat_min)/(tmp_dat_max - tmp_dat_min))
 
+#     norm_input_dat.append(norm_dat)
+
+# norm_input_dat = np.array(norm_input_dat)
 
 predicted_out = (model.predict(norm_input_dat, batch_size = 1))
 
+#print(predicted_out)
+
+#Reform data into graph
+predicted_out_graph = []
+
+for i in range(0, num_training_sets):
+    for j in range(0, NN_INPUT_DATA_LENGTH):
+        predicted_out_graph.append(0)
+    
+    if(predicted_out[i][0] > 0):
+        predicted_out_graph[(i*NN_INPUT_DATA_LENGTH) + int(predicted_out[i][0] * NN_INPUT_DATA_LENGTH)] = 1.5
+        if(predicted_out[i][1] > 0):
+            print("Second peak")
+            predicted_out_graph[(i*NN_INPUT_DATA_LENGTH) + int(predicted_out[i][1] * NN_INPUT_DATA_LENGTH)] = 1.5
 
 
-print(predicted_out)
+plot_size = num_training_sets*NN_INPUT_DATA_LENGTH
 
-t = range(0,DATA_LIMIT)
+t = range(0,plot_size)
 
-plt.plot(t, annotation_timed, t, input_dat, t[NN_INPUT_DATA_LENGTH:] , predicted_out)
+plt.plot(t, annotation_timed[:plot_size], t, input_dat[:plot_size], t , predicted_out_graph)
 
 plt.show()
 
