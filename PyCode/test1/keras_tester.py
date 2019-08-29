@@ -17,7 +17,7 @@ import wfdb.io as wfdbio
 model = krs.models.load_model('current_run.h5')
 
 
-INPUT_FILE_PATH = '..\\..\\mit-bih-database\\101'
+INPUT_FILE_PATH = '..\\..\\mit-bih-database\\100'
 
 DATA_LIMIT = 10000
 NN_INPUT_DATA_LENGTH = 320
