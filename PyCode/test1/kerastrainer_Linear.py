@@ -6,6 +6,7 @@ from tensorflow.keras import layers
 from tensorflow.keras import optimizers
 from tensorflow.keras.layers import Dense, Dropout, Conv1D, Flatten, MaxPooling1D
 
+
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -83,6 +84,34 @@ def pre_process_data(input_dat, annotation):
     return(training_input_dat, training_output_dat)
 
 
+def plot_matplotlib_model(history):
+
+    history_dict = history.history
+    # print(history_dict.keys())
+
+    # sys.exit()
+
+
+    # Plot training & validation accuracy values
+    plt.plot(history.history['accuracy'])
+    plt.plot(history.history['val_accuracy'])
+    plt.title('Model accuracy')
+    plt.ylabel('Accuracy')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Test'], loc='upper left')
+    plt.show(block = False)
+
+    # Plot training & validation loss values
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Model loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Train', 'Test'], loc='upper left')
+    plt.show()
+
+
+
 #########
 # Main
 #########
@@ -123,21 +152,22 @@ model = tf.keras.Sequential()
 ##########
 # MLP
 ##########
-model.add(Dense(128, input_dim=NN_INPUT_DATA_LENGTH, activation='relu'))
-model.add(Dense(64, activation='relu'))
-model.add(Dense(64, activation='relu'))
-model.add(Dense(128, activation='relu'))
+model.add(Dense(64, input_dim=NN_INPUT_DATA_LENGTH, activation='relu'))
+model.add(Dense(64, activation='linear'))
+#model.add(Dense(64, activation='sigmoid'))
+#model.add(Dense(128, activation='sigmoid'))
 model.add(Dense(2, activation='relu'))
 model.compile(loss='mean_squared_error',
               optimizer='rmsprop',
               metrics=['accuracy'])
 
 
-model.fit(training_input_dat, training_output_dat,
-          epochs=500, shuffle = True,
-          batch_size=NN_INPUT_DATA_LENGTH)
+history = model.fit(training_input_dat, training_output_dat,
+          epochs=500, validation_split=0.1,
+          batch_size=16)
 
 model.save('current_run.h5')          
+
 
 #score = model.evaluate(test_input_dat, test_output_dat)
 
@@ -145,6 +175,8 @@ predicted_out = model.predict(training_input_dat)
 
 print(predicted_out)
 print(training_output_dat)
+
+plot_matplotlib_model(history)
 
 # for i in range(0, predicted_out.size):
 #     if(predicted_out[i] > 0.5):
