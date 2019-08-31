@@ -152,8 +152,8 @@ model = tf.keras.Sequential()
 ##########
 # MLP
 ##########
-model.add(Dense(64, input_dim=NN_INPUT_DATA_LENGTH, activation='relu'))
-model.add(Dense(64, activation='linear'))
+model.add(Dense(32, input_dim=NN_INPUT_DATA_LENGTH, activation='relu'))
+model.add(Dense(32, activation='linear'))
 #model.add(Dense(64, activation='sigmoid'))
 #model.add(Dense(128, activation='sigmoid'))
 model.add(Dense(2, activation='relu'))
@@ -165,6 +165,11 @@ model.compile(loss='mean_squared_error',
 history = model.fit(training_input_dat, training_output_dat,
           epochs=500, validation_split=0.1,
           batch_size=16)
+
+# converter = tf.lite.TFLiteConverter.from_keras_model(model)
+# tflite_model = converter.convert()
+# open("converted_model.tflite", "wb").write(tflite_model)
+  
 
 model.save('current_run.h5')          
 
