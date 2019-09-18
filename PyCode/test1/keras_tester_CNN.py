@@ -14,10 +14,10 @@ import matplotlib.pyplot as plt
 import wfdb
 import wfdb.io as wfdbio
 
-model = krs.models.load_model('current_run.h5')
+model = krs.models.load_model('current_run_CNN.h5')
 
 
-INPUT_FILE_PATH = '..\\..\\mit-bih-database\\117'
+INPUT_FILE_PATH = '..\\..\\mit-bih-database\\103'
 
 DATA_LIMIT = 20000
 NN_INPUT_DATA_LENGTH = 320

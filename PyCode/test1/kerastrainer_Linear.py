@@ -16,9 +16,19 @@ import wfdb
 import wfdb.io as wfdbio
 
 
-INPUT_FILE_PATH = ['..\\..\\mit-bih-database\\100', '..\\..\\mit-bih-database\\101']
+INPUT_FILE_PATH = [ '..\\..\\mit-bih-database\\103',\
+                    '..\\..\\mit-bih-database\\106',\
+                    '..\\..\\mit-bih-database\\117',\
+                    '..\\..\\mit-bih-database\\119',\
+                    '..\\..\\mit-bih-database\\122',\
+                    '..\\..\\mit-bih-database\\214',\
+                    '..\\..\\mit-bih-database\\222',\
+                    '..\\..\\mit-bih-database\\223',\
+                    '..\\..\\mit-bih-database\\231']
+# 320 samples(1 sec) windows
 NN_INPUT_DATA_LENGTH = 320
-TRAINING_DATA_LIMIT = 300000
+# 25 mins of data from each
+TRAINING_DATA_LIMIT = 480000
 
 num_training_sets = int(TRAINING_DATA_LIMIT/NN_INPUT_DATA_LENGTH)
 
@@ -34,40 +44,76 @@ def Read_Data_from_wfd(filepath):
 
 def pre_process_data(input_dat, annotation):
     
-    ############################
-    # Form input data into sets
-    ############################
+    ########################################################
+    # Form input data and Output data into training sets
+    ########################################################
     training_input_dat = []
-    for i in range(0, num_training_sets):
-        #Normalize input
-        tmp_dat_max = max(input_dat[i*NN_INPUT_DATA_LENGTH:(i+1)*NN_INPUT_DATA_LENGTH])
-        tmp_dat_min = min(input_dat[i*NN_INPUT_DATA_LENGTH:(i+1)*NN_INPUT_DATA_LENGTH])
-        norm_dat = []
-        for j in range (0, NN_INPUT_DATA_LENGTH):
-            norm_dat.append((input_dat[i*NN_INPUT_DATA_LENGTH + j] - tmp_dat_min)/(tmp_dat_max - tmp_dat_min))
-
-        training_input_dat.append(norm_dat)
-
-    training_input_dat = np.array(training_input_dat, dtype=np.float32)
-
-
-    ############################
-    # Form Output data into sets
-    ############################
     annotation_pointers_pos = []
     annotation_pointers_neg = []
     ann_ptr = 0
 
-    # Pre-work annotation to array
-    for i in range(0, num_training_sets):
+    for subchunk in range(0, num_training_sets):
+        
+        ## Optional, add some noise 
+        # #Add some random noise/pure-noise sets        
+        # noise_blank_out_decider = np.random.rand()
 
+        # #Add noise to 20% of data
+        # if(0.6 > noise_blank_out_decider > 0.80):
+        #     noise_add_flag = 1
+        # else:
+        #     noise_add_flag = 0
+
+        # #Pure noise to 10% of data
+        # if(0.5 > noise_blank_out_decider > 0.6):
+        #     pure_noise_flag = 1
+        # else:
+        #     pure_noise_flag = 0
+
+        noise_add_flag = 0
+        pure_noise_flag = 0
+
+        # Make invalid ECG(pure noise) 
+        if(pure_noise_flag):
+            for index in range (0, NN_INPUT_DATA_LENGTH):
+                input_dat[subchunk*NN_INPUT_DATA_LENGTH + index]  = np.random.rand() 
+        else:
+            if(noise_add_flag):
+                #Get min/max to add relative noise
+                tmp_dat_max = max(input_dat[subchunk*NN_INPUT_DATA_LENGTH:(subchunk+1)*NN_INPUT_DATA_LENGTH])
+                tmp_dat_min = min(input_dat[subchunk*NN_INPUT_DATA_LENGTH:(subchunk+1)*NN_INPUT_DATA_LENGTH])
+
+                # Add some noise, 10% of max-min
+                for index in range (0, NN_INPUT_DATA_LENGTH):
+                    input_dat[subchunk*NN_INPUT_DATA_LENGTH + index]  += 0.2 * np.random.rand() *(tmp_dat_max - tmp_dat_min)  
+
+
+        #Normalize input
+        norm_dat = []
+        #Calc min/max for nomralizaton
+        tmp_dat_max = max(input_dat[subchunk*NN_INPUT_DATA_LENGTH:(subchunk+1)*NN_INPUT_DATA_LENGTH])
+        tmp_dat_min = min(input_dat[subchunk*NN_INPUT_DATA_LENGTH:(subchunk+1)*NN_INPUT_DATA_LENGTH])
+        for index in range (0, NN_INPUT_DATA_LENGTH):
+            norm_dat.append((input_dat[subchunk*NN_INPUT_DATA_LENGTH + index] - tmp_dat_min)/(tmp_dat_max - tmp_dat_min))
+
+        training_input_dat.append(norm_dat)
+
+        # Output 
         # Check for first peak
-        if(i*NN_INPUT_DATA_LENGTH <= annotation.sample[ann_ptr] < (i+1)*NN_INPUT_DATA_LENGTH):
-            annotation_pointers_pos.append(annotation.sample[ann_ptr] - i*NN_INPUT_DATA_LENGTH)
+        if(subchunk*NN_INPUT_DATA_LENGTH <= annotation.sample[ann_ptr] < (subchunk+1)*NN_INPUT_DATA_LENGTH):
+            # If pure noise, then just ignore any annotated peaks
+            if(pure_noise_flag):
+                annotation_pointers_pos.append(0)
+            else:
+                annotation_pointers_pos.append(annotation.sample[ann_ptr] - subchunk*NN_INPUT_DATA_LENGTH)
             ann_ptr += 1
             # Check for second peak
-            if(i*NN_INPUT_DATA_LENGTH <= annotation.sample[ann_ptr] < (i+1)*NN_INPUT_DATA_LENGTH):
-                annotation_pointers_neg.append(annotation.sample[ann_ptr] - i*NN_INPUT_DATA_LENGTH)
+            if(subchunk*NN_INPUT_DATA_LENGTH <= annotation.sample[ann_ptr] < (subchunk+1)*NN_INPUT_DATA_LENGTH):
+                # If pure noise, then just ignore any annotated peaks
+                if(pure_noise_flag):
+                    annotation_pointers_neg.append(0)
+                else:
+                    annotation_pointers_neg.append(annotation.sample[ann_ptr] - subchunk*NN_INPUT_DATA_LENGTH)
                 ann_ptr += 1
             else:
                 annotation_pointers_neg.append(0) 
@@ -75,6 +121,28 @@ def pre_process_data(input_dat, annotation):
         else:
             annotation_pointers_pos.append(0) 
             annotation_pointers_neg.append(0) 
+
+
+    training_input_dat = np.array(training_input_dat, dtype=np.float32)
+
+
+    # # Pre-work annotation to array
+    # for i in range(0, num_training_sets):
+
+    #     # Check for first peak
+    #     if(i*NN_INPUT_DATA_LENGTH <= annotation.sample[ann_ptr] < (i+1)*NN_INPUT_DATA_LENGTH):
+    #         annotation_pointers_pos.append(annotation.sample[ann_ptr] - i*NN_INPUT_DATA_LENGTH)
+    #         ann_ptr += 1
+    #         # Check for second peak
+    #         if(i*NN_INPUT_DATA_LENGTH <= annotation.sample[ann_ptr] < (i+1)*NN_INPUT_DATA_LENGTH):
+    #             annotation_pointers_neg.append(annotation.sample[ann_ptr] - i*NN_INPUT_DATA_LENGTH)
+    #             ann_ptr += 1
+    #         else:
+    #             annotation_pointers_neg.append(0) 
+
+    #     else:
+    #         annotation_pointers_pos.append(0) 
+    #         annotation_pointers_neg.append(0) 
 
     training_output_dat = [annotation_pointers_pos, annotation_pointers_neg]
     training_output_dat = np.array(training_output_dat) / NN_INPUT_DATA_LENGTH
@@ -115,62 +183,43 @@ def plot_matplotlib_model(history):
 #########
 # Main
 #########
+
 data_file, annotation_file = Read_Data_from_wfd(INPUT_FILE_PATH[0])
 input_dat_1, output_dat_1 = pre_process_data(data_file, annotation_file)
-data_file, annotation_file = Read_Data_from_wfd(INPUT_FILE_PATH[1])
-input_dat_2, output_dat_2 = pre_process_data(data_file, annotation_file)
+training_input_dat = input_dat_1
+training_output_dat = output_dat_1
 
-training_input_dat = np.concatenate((input_dat_1, input_dat_2), axis=0)
-training_output_dat = np.concatenate((output_dat_1, output_dat_2), axis=0)
-
-#print(training_input_dat.shape)
-
-#sys.exit()
-# ############################
-# # Form test data
-# ############################
-# test_input_dat = []
-# for i in range(0, (TRAINING_DATA_LIMIT-NN_INPUT_DATA_LENGTH)):
-#     test_input_dat.append(np.array(input_dat[i:(i+NN_INPUT_DATA_LENGTH)]))
-
-
-# # for i in range(0, training_output_dat.size):
-# #     if(training_output_dat[i] > 0.5):
-# #         print("yay")
-
-# print(training_input_dat)
-# print(training_output_dat)
-
-# print(training_input_dat.shape)
-# print(training_output_dat.shape)
-
+for x in range(len(INPUT_FILE_PATH)-1):
+    data_file, annotation_file = Read_Data_from_wfd(INPUT_FILE_PATH[x+1])
+    input_dat_1, output_dat_1 = pre_process_data(data_file, annotation_file)
+    training_input_dat = np.concatenate((training_input_dat, input_dat_1), axis=0)
+    training_output_dat = np.concatenate((training_output_dat, output_dat_1), axis=0)
 
 # Create model
 model = tf.keras.Sequential()
 
-
 ##########
 # MLP
 ##########
-model.add(Dense(32, input_dim=NN_INPUT_DATA_LENGTH, activation='relu'))
-model.add(Dense(32, activation='linear'))
-#model.add(Dense(64, activation='sigmoid'))
-#model.add(Dense(128, activation='sigmoid'))
+model.add(Dense(128, input_dim=NN_INPUT_DATA_LENGTH, activation='linear'))
+model.add(Dropout(0.5))
+model.add(Dense(128, activation='softmax'))
+model.add(Dropout(0.5))
 model.add(Dense(2, activation='relu'))
 model.compile(loss='mean_squared_error',
-              optimizer='rmsprop',
+              optimizer='RMSprop',
               metrics=['accuracy'])
 
 
 history = model.fit(training_input_dat, training_output_dat,
-          epochs=500, validation_split=0.1,
-          batch_size=16)
+          epochs=5000, validation_split=0.1,
+          batch_size=2048)
 
 # converter = tf.lite.TFLiteConverter.from_keras_model(model)
 # tflite_model = converter.convert()
 # open("converted_model.tflite", "wb").write(tflite_model)
   
-
+model.summary()
 model.save('current_run.h5')          
 
 

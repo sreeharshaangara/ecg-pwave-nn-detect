@@ -1,1 +1,6 @@
 .zip
+.7z
+ECG_Tester/BUILD/
+ECG_Tester/mbed-os/
+Firmware_2/BUILD/
+Firmware_2/mbed-os/
